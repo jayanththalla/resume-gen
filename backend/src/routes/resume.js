@@ -194,4 +194,39 @@ router.post('/chat-optimize', optionalAuth, async (req, res) => {
   }
 });
 
+// Apply or reject a suggestion
+router.post('/suggestion', optionalAuth, async (req, res) => {
+  try {
+    const { resumeContent, suggestion, action } = req.body;
+
+    if (!resumeContent || !suggestion || !action) {
+      return res.status(400).json({
+        success: false,
+        message: 'Resume content, suggestion, and action are required'
+      });
+    }
+
+    const updatedContent = await resumeService.applySuggestion({
+      resumeContent,
+      suggestion,
+      action
+    });
+
+    res.json({
+      success: true,
+      message: `Suggestion ${action}ed successfully`,
+      data: {
+        updatedContent
+      }
+    });
+
+  } catch (error) {
+    console.error('Suggestion handling error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to handle suggestion'
+    });
+  }
+});
+
 module.exports = router;

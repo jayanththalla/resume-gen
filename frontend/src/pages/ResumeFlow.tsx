@@ -13,70 +13,77 @@ export const ResumeFlow: React.FC = () => {
 
   const steps = ['Job Description', 'Resume Source', 'AI Optimization', 'Preview & Export'];
 
-  const handleJdSubmit = (jd: any) => {
+  const handleJdSubmit = async (jd: any) => {
     setJobDescription(jd);
+    addMessage({ type: 'user', content: `Job description for ${jd.position} at ${jd.company} submitted.` });
     
-    // Simulate AI analysis
-    setTimeout(() => {
+    try {
+      const response = await fetch('http://localhost:3000/api/job/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobDescription: jd.description }),
+      });
+
+      if (!response.ok) throw new Error('Failed to analyze job description.');
+
+      const data = await response.json();
+
       addMessage({
         type: 'ai',
-        content: `Great! I've analyzed the ${jd.position} position at ${jd.company}. I found ${jd.keywords.length} key technical skills and requirements. Now let's get your resume so I can optimize it for this specific role.`,
+        content: `Great! I've analyzed the ${jd.position} position at ${jd.company}. I found ${data.keywords.length} key skills. Now, let's get your resume.`,
       });
-    }, 1000);
+
+    } catch (error) {
+      addMessage({
+        type: 'ai',
+        content: `Sorry, I encountered an error analyzing the job description. Please try again.`,
+      });
+    }
   };
 
-  const handleSourceSelect = (source: any) => {
+  const handleSourceSelect = async (source: any) => {
     setResumeSource(source);
-    
-    // Simulate AI processing
-    setTimeout(() => {
+    addMessage({ type: 'user', content: `Resume source selected: ${source.type}` });
+
+    try {
+      let resumeText = '';
+      if (source.type === 'upload') {
+        const formData = new FormData();
+        formData.append('resume', source.file);
+
+        const parseResponse = await fetch('http://localhost:3000/api/resume/parse', {
+          method: 'POST',
+          body: formData,
+        });
+        if (!parseResponse.ok) throw new Error('Failed to parse resume.');
+        const parsedData = await parseResponse.json();
+        resumeText = parsedData.text;
+      } else if (source.type === 'paste') {
+        resumeText = source.content;
+      }
+
+      addMessage({ type: 'ai', content: `Great, I have your resume. Now, I'm optimizing it for the ${state.jobDescription?.position} role...` });
+
+      const optimizeResponse = await fetch('http://localhost:3000/api/resume/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resumeContent: resumeText,
+          jobDescription: state.jobDescription?.description,
+        }),
+      });
+      if (!optimizeResponse.ok) throw new Error('Failed to optimize resume.');
+      const optimizedData = await optimizeResponse.json();
+
       addMessage({
         type: 'ai',
-        content: `Perfect! I've received your resume. Now I'm analyzing it against the job requirements for ${state.jobDescription?.position} at ${state.jobDescription?.company}. I'll identify missing keywords and suggest improvements to maximize your ATS score.`,
+        content: `I've finished optimizing your resume. Here are my suggestions:`,
+        suggestions: optimizedData.suggestions,
       });
-      
-      // Add mock suggestions after a delay
-      setTimeout(() => {
-        const mockSuggestions = [
-          {
-            id: '1',
-            type: 'keyword' as const,
-            section: 'Technical Skills',
-            original: 'JavaScript, HTML, CSS',
-            suggested: 'JavaScript, TypeScript, HTML5, CSS3, React, Node.js',
-            reason: 'The job description emphasizes TypeScript and React experience. Adding these keywords will significantly improve your ATS score.',
-            impact: 'high' as const,
-            status: 'pending' as const,
-          },
-          {
-            id: '2',
-            type: 'content' as const,
-            section: 'Experience',
-            original: 'Worked on web development projects',
-            suggested: 'Developed scalable web applications using React and Node.js, serving 10,000+ daily active users',
-            reason: 'Quantifying your impact and using specific technologies mentioned in the JD will make your experience more compelling.',
-            impact: 'high' as const,
-            status: 'pending' as const,
-          },
-          {
-            id: '3',
-            type: 'keyword' as const,
-            section: 'Experience',
-            original: 'team collaboration',
-            suggested: 'cross-functional team collaboration in Agile/Scrum environment',
-            reason: 'The job posting specifically mentions Agile methodology and cross-functional teamwork.',
-            impact: 'medium' as const,
-            status: 'pending' as const,
-          },
-        ];
 
-        addMessage({
-          type: 'ai',
-          content: `I've completed my analysis! I found several opportunities to optimize your resume for this position. Here are my top recommendations to improve your ATS score and better match the job requirements:`,
-          suggestions: mockSuggestions,
-        });
-      }, 2000);
-    }, 1500);
+    } catch (error) {
+      addMessage({ type: 'ai', content: 'Sorry, I encountered an error processing your resume. Please try again.' });
+    }
   };
 
   const handleSendMessage = (content: string) => {
@@ -91,9 +98,32 @@ export const ResumeFlow: React.FC = () => {
     }, 1000);
   };
 
-  const handleExport = (options: any) => {
-    console.log('Exporting with options:', options);
-    // Implement export logic
+  const handleExport = async (options: { format: 'pdf' | 'docx' }) => {
+    try {
+      const response = await fetch('http://localhost:3000/api/resume/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resumeContent: state.optimizedContent,
+          format: options.format,
+          companyName: state.jobDescription?.company,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to export resume.');
+
+      const data = await response.json();
+
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = `http://localhost:3000${data.downloadUrl}`;
+      link.setAttribute('download', data.fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+    } catch (error) {
+      addMessage({ type: 'ai', content: 'Sorry, I encountered an error exporting your resume. Please try again.' });
+    }
   };
 
   return (
