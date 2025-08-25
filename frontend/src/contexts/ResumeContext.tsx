@@ -128,8 +128,29 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'ADD_MESSAGE', payload: fullMessage });
   };
 
-  const approveSuggestion = (id: string) => {
-    dispatch({ type: 'UPDATE_SUGGESTION', payload: { id, status: 'approved' } });
+  const approveSuggestion = async (id: string) => {
+    const suggestion = state.suggestions.find(s => s.id === id);
+    if (!suggestion) return;
+
+    try {
+      const response = await fetch('http://localhost:3000/api/resume/suggestion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resumeContent: state.optimizedContent,
+          suggestion,
+          action: 'approved',
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to apply suggestion.');
+      const data = await response.json();
+
+      dispatch({ type: 'SET_OPTIMIZED_CONTENT', payload: data.updatedContent });
+      dispatch({ type: 'UPDATE_SUGGESTION', payload: { id, status: 'approved' } });
+
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to apply suggestion.' });
+    }
   };
 
   const rejectSuggestion = (id: string) => {

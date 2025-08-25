@@ -524,4 +524,14 @@ Return JSON with sections:
   }
 }
 
+  async applySuggestion({ resumeContent, suggestion, action }) {
+    if (action === 'approved') {
+      // Replace the original content with the suggested content
+      return resumeContent.replace(suggestion.original, suggestion.suggested);
+    }
+    // If rejected, return original content
+    return resumeContent;
+  }
+}
+
 module.exports = new ResumeService();
