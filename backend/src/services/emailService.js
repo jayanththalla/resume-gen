@@ -3,7 +3,7 @@ const aiService = require('./aiService');
 
 class EmailService {
   constructor() {
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.GMAIL_USER,
@@ -85,7 +85,7 @@ Generate a professional follow-up email in JSON format:
       ]);
 
       const emailContent = JSON.parse(response);
-      
+
       return {
         ...emailContent,
         type: 'follow-up',
@@ -112,7 +112,7 @@ Generate a professional follow-up email in JSON format:
       };
 
       const result = await this.transporter.sendMail(mailOptions);
-      
+
       return {
         messageId: result.messageId,
         response: result.response,
